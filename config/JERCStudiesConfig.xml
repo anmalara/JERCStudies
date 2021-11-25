@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE JobConfiguration PUBLIC "" "JobConfig.dtd"[
+
+<!-- Generic Value -->
+<!ENTITY CACHEABLE                  "False">
+<!ENTITY NEVT                       "-1">
+<!ENTITY YEAR                       "defaultValue">
+<!ENTITY STUDIES                    "Studies">
+<!ENTITY OUTDIR                     "/nfs/dust/cms/user/USER/sframe_all/JERCStudies/&STUDIES;/">
+
+<!-- MC PuReweighting -->
+<!ENTITY lumi_file                  "defaultValue">
+<!ENTITY SysType_PU                 "central">    <!-- central, up, down -->
+<!ENTITY pileup_directory           "CMSSW_BASE/src/UHH2/common/UHH2-data/&YEAR;/MyMCPileupHistogram_&YEAR;.root">
+<!ENTITY pileup_directory_data      "CMSSW_BASE/src/UHH2/common/UHH2-data/&YEAR;/MyDataPileupHistogram_&YEAR;.root">
+<!ENTITY pileup_directory_data_up   "CMSSW_BASE/src/UHH2/common/UHH2-data/&YEAR;/MyDataPileupHistogram_&YEAR;_72383.root">
+<!ENTITY pileup_directory_data_down "CMSSW_BASE/src/UHH2/common/UHH2-data/&YEAR;/MyDataPileupHistogram_&YEAR;_66017.root">
+
+<!-- Cleaning variables -->
+<!ENTITY lumisel                    "true">  <!--true/false -->
+<!ENTITY mclumiweight               "true">  <!--true/false -->
+<!ENTITY mcpileupreweight           "true">  <!--true/false -->
+<!ENTITY metfilters                 "true">  <!--true/false -->
+<!ENTITY jlc                        "false"> <!--true/false -->
+<!ENTITY jec                        "true">  <!--true/false -->
+<!ENTITY jer                        "false">  <!--true/false -->
+<!ENTITY topjec                     "true">  <!--true/false -->
+<!ENTITY jersmear                   "true">  <!--true/false -->
+<!ENTITY topjersmear                "true">  <!--true/false -->
+<!ENTITY jetpfidcleaner             "true">  <!--true--> <!--fixed value -->
+<!ENTITY topjetpfidcleaner          "true">  <!--true/false -->
+<!ENTITY jetlepcleaner              "true">  <!--true/false -->
+<!ENTITY eleid                      "true">  <!--true/false -->
+<!ENTITY muid                       "true">  <!--true/false -->
+<!ENTITY tauid                      "false"> <!--true/false -->
+<!ENTITY jetid                      "true">  <!--true/false -->
+<!ENTITY topjetid                   "true">  <!--true/false -->
+<!ENTITY do_metcorrection           "true">  <!--true/false -->
+
+<!-- Systematic uncertainties -->
+<!ENTITY JEC_Version                "defaultValue">
+<!ENTITY JER_Version                "defaultValue">
+<!ENTITY jecsmear_direction         "nominal">  <!--nominal/down/up -->
+<!ENTITY jersmear_direction         "nominal">  <!--nominal/down/up -->
+
+<!-- MC Samples 2016 -->
+<!-- <!ENTITY MC_DY_UL16       SYSTEM  "/nfs/dust/cms/user/abenecke/CMSSW_10_6_X_UL16fix/CMSSW_10_6_24/src/UHH2/scripts/crab/PuppiStudies/UL16/DY_Summer20_default/DYJetsToLL_M-50_CP5_Summer20_v1.xml"> -->
+<!-- <!ENTITY MC_DY_UL16       SYSTEM  "CMSSW_BASE/src/UHH2/JERCStudies/config/DYJetsToLL_M-50_CP5_Summer20_v1_test.xml"> -->
+<!ENTITY MC_DY_UL16       SYSTEM  "CMSSW_BASE/src/UHH2/JERCStudies/config/DYJetsToLL_M-50_CP5_Summer20_v1.xml">
+<!-- <!ENTITY MC_QCD_UL16      SYSTEM  "CMSSW_BASE/src/UHH2/common/UHH2-datasets/RunI TuneCP5_13TeV-madgraph-pythia8_Summer16_v2.xml"> -->
+
+]>
+
+<!--
+<ConfigParse NEventsBreak="0" FileSplit="10" AutoResubmit="5"/>
+<ConfigSGE RAM ="2" DISK ="1" TIME ="3" Mail="USER@mail.desy.de" Notification="as" Workdir="workdir_JERCStudies"/>
+-->
+
+
+
+<!-- OutputLevel controls which messages are printed; set to VERBOSE or DEBUG for more verbosity, to WARNING or ERROR for less -->
+<JobConfiguration JobName="JERCStudiesJob" OutputLevel="INFO">
+  <Library Name="libSUHH2JERCStudies"/>
+  <Package Name="SUHH2JERCStudies.par"/>
+
+  <Cycle Name="uhh2::AnalysisModuleRunner" OutputDirectory="&OUTDIR;/" PostFix="" TargetLumi="defaultValue" >
+
+    <!-- Verion attribute must have year in it, same as used in ntuple config, e.g. 2018, 2016v3, etc -->
+    <InputData Type="MC"    Version="MC_DY_UL16"     Lumi="1"        NEventsMax="&NEVT;" Cacheable="&CACHEABLE;">  &MC_DY_UL16;     <InputTree Name="AnalysisTree"/> </InputData>
+    <InputData Type="MC"    Version="MC_QCD_UL16"    Lumi="1"        NEventsMax="&NEVT;" Cacheable="&CACHEABLE;">  &MC_QCD_UL16;    <InputTree Name="AnalysisTree"/> </InputData>
+
+    <UserConfig>
+      <!-- define which collections to read from the input. Only specify what you need to save I/O time -->
+      <Item Name="PrimaryVertexCollection"    Value="offlineSlimmedPrimaryVertices"/>
+      <Item Name="ElectronCollection"         Value="slimmedElectronsUSER"/>
+      <Item Name="MuonCollection"             Value="slimmedMuonsUSER"/>
+      <Item Name="GenInfoName"                Value="genInfo"/>
+      <Item Name="GenParticleCollection"      Value="GenParticles"/>
+      <Item Name="GenJetCollection"           Value="slimmedGenJets"/>
+      <!-- <Item Name="GenTopJetCollection"        Value="genjetsAk8SubstructureSoftDrop"/> -->
+      <Item Name="JetCollection"              Value="jetsAk4CHS"/>
+      <!-- <Item Name="TopJetCollection"           Value="jetsAk8CHSSubstructure_SoftDropCHS"/> -->
+      <!-- <Item Name="TopPuppiJetCollection"      Value="jetsAk8PuppiSubstructure_SoftDropPuppi"/> -->
+      <Item Name="METName"                    Value="slimmedMETs"/>
+      <Item Name="additionalBranches"         Value="slimmedMETsPuppi jetsAk4Puppi"/>
+
+
+      <!-- The list of available collections to read in corresponds to the pointer members in event. The 'Name's to use here in the configuration are:
+
+
+      Note that the last four are only read in for MC (InputData Type="MC"), so it is save to specify
+      them for real data, although those branches do not exist.
+
+      As 'Value', always use the branch name (if in doubt, open the input file in ROOT).
+
+      By default, triggers are read. To explicitly disable reading triggers, use:
+      <Item Name="readTrigger" Value="false"/>
+    -->
+
+    <Item Name="use_sframe_weight"          Value="false"/>
+
+    <Item Name="lumi_file"                  Value="&lumi_file;"/>
+    <Item Name="lumihists_lumi_per_bin"     Value="500."/> <!-- used in UHH2/common/include/LuminosityHists.h -->
+
+    <Item Name="year"                       Value="&YEAR;"/>
+
+    <!-- Systematic uncertainties -->
+    <Item Name="JEC_Version"                Value="&JEC_Version;"/>
+    <Item Name="JER_Version"                Value="&JER_Version;"/>
+    <Item Name="jersmear_direction"         Value="&jersmear_direction;"/>  <!--used only in UHH2/common/include/JetCorrections.cxx -->
+    <Item Name="jecsmear_direction"         Value="&jecsmear_direction;"/>  <!--used only in UHH2/common/include/JetCorrections.cxx -->
+
+    <!-- MC PuReweighting -->
+    <Item Name="SysType_PU"                 Value="&SysType_PU;"/>
+    <Item Name="pileup_directory"           Value="&pileup_directory;"/>            <!--used only in UHH2/common/include/MCWeight.h -->
+    <Item Name="pileup_directory_data"      Value="&pileup_directory_data;"/>       <!--used only in UHH2/common/include/MCWeight.h -->
+    <Item Name="pileup_directory_data_up"   Value="&pileup_directory_data_up;"/>    <!--used only in UHH2/common/include/MCWeight.h -->
+    <Item Name="pileup_directory_data_down" Value="&pileup_directory_data_down;"/>  <!--used only in UHH2/common/include/MCWeight.h -->
+
+    <!-- Cleaning variables -->
+    <Item Name="lumisel"                    Value="&lumisel;"/>
+    <Item Name="mclumiweight"               Value="&mclumiweight;"/>
+    <Item Name="mcpileupreweight"           Value="&mcpileupreweight;"/>
+    <Item Name="metfilters"                 Value="&metfilters;"/>
+    <Item Name="jlc"                        Value="&jlc;"/>
+    <Item Name="jec"                        Value="&jec;"/>
+    <Item Name="jer"                        Value="&jer;"/>
+    <Item Name="topjec"                     Value="&topjec;"/>
+    <Item Name="jersmear"                   Value="&jersmear;"/>
+    <Item Name="topjersmear"                Value="&topjersmear;"/>
+    <Item Name="jetpfidcleaner"             Value="&jetpfidcleaner;"/>
+    <Item Name="topjetpfidcleaner"          Value="&topjetpfidcleaner;"/>
+    <Item Name="jetlepcleaner"              Value="&jetlepcleaner;"/>
+    <Item Name="eleid"                      Value="&eleid;"/>
+    <Item Name="muid"                       Value="&muid;"/>
+    <Item Name="tauid"                      Value="&tauid;"/>
+    <Item Name="jetid"                      Value="&jetid;"/>
+    <Item Name="topjetid"                   Value="&topjetid;"/>
+    <Item Name="do_metcorrection"           Value="&do_metcorrection;"/>
+
+    <!-- the class name of the AnalysisModule subclasses to run: -->
+    <Item Name="AnalysisModule"             Value="JERCStudiesModule"/>
+
+  </UserConfig>
+</Cycle>
+</JobConfiguration>

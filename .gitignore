@@ -1,0 +1,21 @@
+# Put temporary objects in 'obj', (test) binaries in 'bin',
+# and other stuff (such as test root files) in tmp.
+**/obj/**
+*/bin
+*/tmp
+core/python/*.pyc
+core/python/__init__.py
+**/*.root
+**/*.pdf
+**/*.png
+**/*.npy
+**/*.ps
+**/*.eps
+*~
+*.local
+**/*.pyc
+**/log*.txt
+
+**jobTempOutput_**/**
+**/*submitFiles
+config/SubmittedJobs*

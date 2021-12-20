@@ -54,7 +54,6 @@ jetID(jetID_), TopjetID(TopjetID_), muoIDcleaning(muoID_), eleIDcleaning(eleID_)
   bools["is_mc"]    = ctx.get("dataset_type") == "MC";
   bools["isJLC"]    = string2bool(ctx.get("jlc", "false"));
   bools["isJEC"]    = string2bool(ctx.get("jec", "true"));
-  bools["isJER"]    = string2bool(ctx.get("jer", "true"));
   bools["isTopJEC"] = string2bool(ctx.get("topjec", "true"));
   bools["isJER"]    = string2bool(ctx.get("jersmear", "true"));
   bools["isTopJER"] = string2bool(ctx.get("topjersmear", "true"));

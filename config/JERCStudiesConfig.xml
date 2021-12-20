@@ -23,10 +23,9 @@
 <!ENTITY metfilters                 "true">  <!--true/false -->
 <!ENTITY jlc                        "false"> <!--true/false -->
 <!ENTITY jec                        "true">  <!--true/false -->
-<!ENTITY jer                        "false">  <!--true/false -->
 <!ENTITY topjec                     "true">  <!--true/false -->
-<!ENTITY jersmear                   "true">  <!--true/false -->
-<!ENTITY topjersmear                "true">  <!--true/false -->
+<!ENTITY jersmear                   "false">  <!--true/false -->
+<!ENTITY topjersmear                "false">  <!--true/false -->
 <!ENTITY jetpfidcleaner             "true">  <!--true--> <!--fixed value -->
 <!ENTITY topjetpfidcleaner          "true">  <!--true/false -->
 <!ENTITY jetlepcleaner              "true">  <!--true/false -->
@@ -44,10 +43,10 @@
 <!ENTITY jersmear_direction         "nominal">  <!--nominal/down/up -->
 
 <!-- MC Samples 2016 -->
-<!-- <!ENTITY MC_DY_UL16       SYSTEM  "/nfs/dust/cms/user/abenecke/CMSSW_10_6_X_UL16fix/CMSSW_10_6_24/src/UHH2/scripts/crab/PuppiStudies/UL16/DY_Summer20_default/DYJetsToLL_M-50_CP5_Summer20_v1.xml"> -->
-<!-- <!ENTITY MC_DY_UL16       SYSTEM  "CMSSW_BASE/src/UHH2/JERCStudies/config/DYJetsToLL_M-50_CP5_Summer20_v1_test.xml"> -->
-<!ENTITY MC_DY_UL16       SYSTEM  "CMSSW_BASE/src/UHH2/JERCStudies/config/DYJetsToLL_M-50_CP5_Summer20_v1.xml">
-<!-- <!ENTITY MC_QCD_UL16      SYSTEM  "CMSSW_BASE/src/UHH2/common/UHH2-datasets/RunI TuneCP5_13TeV-madgraph-pythia8_Summer16_v2.xml"> -->
+<!ENTITY MC_DY_UL16APV      SYSTEM  "CMSSW_BASE/src/UHH2/JERCStudies/config/DYJetsToLL_M-50_CP5_Summer20_v1.xml">
+<!ENTITY MC_QCD_UL16APV     SYSTEM  "CMSSW_BASE/src/UHH2/JERCStudies/config/QCD_Pt-15to7000_TuneCP5_Flat2018_13TeV_pythia8_Summer20_v2_APV.xml">
+<!ENTITY MC_QCD_UL16nonAPV  SYSTEM  "CMSSW_BASE/src/UHH2/JERCStudies/config/QCD_Pt-15to7000_TuneCP5_Flat2018_13TeV_pythia8_Summer20_v1_nonAPV.xml">
+
 
 ]>
 
@@ -66,8 +65,9 @@
   <Cycle Name="uhh2::AnalysisModuleRunner" OutputDirectory="&OUTDIR;/" PostFix="" TargetLumi="defaultValue" >
 
     <!-- Verion attribute must have year in it, same as used in ntuple config, e.g. 2018, 2016v3, etc -->
-    <InputData Type="MC"    Version="MC_DY_UL16"     Lumi="1"        NEventsMax="&NEVT;" Cacheable="&CACHEABLE;">  &MC_DY_UL16;     <InputTree Name="AnalysisTree"/> </InputData>
-    <InputData Type="MC"    Version="MC_QCD_UL16"    Lumi="1"        NEventsMax="&NEVT;" Cacheable="&CACHEABLE;">  &MC_QCD_UL16;    <InputTree Name="AnalysisTree"/> </InputData>
+    <InputData Type="MC"    Version="MC_DY_UL16APV"     Lumi="1"        NEventsMax="&NEVT;" Cacheable="&CACHEABLE;">  &MC_DY_UL16APV;     <InputTree Name="AnalysisTree"/> </InputData>
+    <InputData Type="MC"    Version="MC_QCD_UL16APV"    Lumi="1"        NEventsMax="&NEVT;" Cacheable="&CACHEABLE;">  &MC_QCD_UL16APV;    <InputTree Name="AnalysisTree"/> </InputData>
+    <InputData Type="MC"    Version="MC_QCD_UL16nonAPV" Lumi="1"        NEventsMax="&NEVT;" Cacheable="&CACHEABLE;">  &MC_QCD_UL16nonAPV; <InputTree Name="AnalysisTree"/> </InputData>
 
     <UserConfig>
       <!-- define which collections to read from the input. Only specify what you need to save I/O time -->
@@ -124,7 +124,6 @@
     <Item Name="metfilters"                 Value="&metfilters;"/>
     <Item Name="jlc"                        Value="&jlc;"/>
     <Item Name="jec"                        Value="&jec;"/>
-    <Item Name="jer"                        Value="&jer;"/>
     <Item Name="topjec"                     Value="&topjec;"/>
     <Item Name="jersmear"                   Value="&jersmear;"/>
     <Item Name="topjersmear"                Value="&topjersmear;"/>

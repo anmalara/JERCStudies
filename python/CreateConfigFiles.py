@@ -7,10 +7,10 @@ YearVars = {}
 YearVars["JEC_Version"]         = {"2016":       "Summer16_07Aug2017_V11",
                                    "2017":       "Fall17_17Nov2017_V32",
                                    "2018":       "Autumn18_V19",
-                                   "UL16APV":    "Summer19UL16APV_V7",
-                                   "UL16nonAPV": "Summer19UL16APV_V7",
-                                   "UL17":       "Summer19UL16APV_V7",
-                                   "UL18":       "Summer19UL16APV_V7",
+                                   "UL16APV":    "Summer19UL16APV_V8",
+                                   "UL16nonAPV": "Summer19UL16_V8",
+                                   # "UL17":       "Summer19UL16APV_V7",
+                                   # "UL18":       "Summer19UL16APV_V7",
                                    }
 YearVars["JER_Version"]         = {"2016":       "Summer16_25nsV1",
                                    "2017":       "Fall17_V3",
@@ -66,7 +66,8 @@ def CreateConfigFiles(year, folder="test",ConfigFile_="JERCStudies"):
             samples.append([x for x in line.split() if "Version=" in x][0].replace('Version="',"").replace('"',""))
     print samples
     for sample in samples:
-        filename = ConfigFile_+"Config_"+sample+"_"+year+".xml"
+        if not year in sample: continue
+        filename = ConfigFile_+"Config_"+sample+".xml"
         a = os.system("cp "+ConfigFile+" "+outdir+filename)
         a = os.system("cp "+inputdir+"JobConfig.dtd "+outdir)
         comments = []
@@ -95,7 +96,7 @@ def CreateConfigFiles(year, folder="test",ConfigFile_="JERCStudies"):
 
 if __name__ == '__main__':
 
-    years = ["UL16APV"]
+    years = ["UL16APV","UL16nonAPV"]
 
     for year in years:
         CreateConfigFiles(year=year)

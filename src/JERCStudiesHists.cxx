@@ -9,17 +9,22 @@ using namespace std;
 using namespace uhh2;
 
 
-JERCStudiesHists::JERCStudiesHists(Context & ctx, const string & dname, const string & collection_): HistsBase(ctx, dname), collection(collection_){
+JERCStudiesHists::JERCStudiesHists(Context & ctx, const string & dname, const string & collection_, const bool isPositive_, const bool isCentral_, const bool isHF_):
+HistsBase(ctx, dname), collection(collection_), isPositive(isPositive_), isCentral(isCentral_), isHF(isHF_) {
+
+  FilterVector(eta_bins, 0,                             isPositive? "":"invert");
+  FilterVector(eta_bins, (isPositive?  1:-1)*etaBarrel, isPositive==isCentral? "invert":"");
+  FilterVector(eta_bins, (isPositive? 1:-1)*etaHF,      isPositive==isHF? "":"invert");
 
   h_jets = ctx.get_handle<vector<Jet>>(collection);
 
   for(unsigned int f = 0; f <flav_bins.size(); f++){
-    for(unsigned int i = 0; i <eta_bins.size(); i++){
-      for(unsigned int j = 0; j <pt_bins.size(); j++){
+    for(unsigned int e = 0; e <eta_bins.size(); e++){
+      for(unsigned int p = 0; p <pt_bins.size(); p++){
         std::string name = "Resp_";
         name += "flav_"+flav_bins[f];
-        name += "eta_"+GetStringFromFloat(eta_bins[i])+"to"+GetStringFromFloat(eta_bins[i+1]);
-        name += "pt_"+GetStringFromFloat(pt_bins[j])+"to"+GetStringFromFloat(pt_bins[j+1]);
+        name += "eta_"+GetStringFromFloat(eta_bins[e])+"to"+GetStringFromFloat(eta_bins[e+1]);
+        name += "pt_"+GetStringFromFloat(pt_bins[p])+"to"+GetStringFromFloat(pt_bins[p+1]);
         book_TH1F(name, "R", 100, -1, 3);
       }
     }
@@ -37,8 +42,11 @@ void JERCStudiesHists::fill(const Event & event){
     if (drmin>0.2) continue;
 
     double gen_flav = abs(next_genjet->partonFlavour());
-    double eta_jet = jet.eta();
     double eta_genjet = next_genjet->eta();
+
+    if (isPositive && eta_genjet<0) continue;
+    if (isCentral && eta_genjet<0) continue;
+
     double pt_jet = jet.pt();
     double pt_genjet = next_genjet->pt();
     double resp = pt_jet/pt_genjet;
@@ -50,15 +58,36 @@ void JERCStudiesHists::fill(const Event & event){
     else if (gen_flav==5) flav = "b";
     else if (gen_flav==21) flav = "g";
 
-    for(unsigned int i = 0; i <eta_bins.size(); i++){
-      if (eta_bins[i]<eta_genjet && eta_genjet<eta_bins[i+1]){
-        for(unsigned int j = 0; j <pt_bins.size(); j++){
-          if (pt_bins[j]<pt_genjet && pt_genjet<pt_bins[j+1]){
+    string flav2 = "";
+    if (gen_flav==4 || gen_flav==5) flav2 = "heavy";
+    else if (gen_flav>=1 || gen_flav<=3 || gen_flav==21) flav2 = "light";
+
+    string flav3 = "";
+    if (gen_flav!=0) flav3 = "all";
+
+    for(unsigned int e = 0; e <eta_bins.size(); e++){
+      if (eta_bins[e]<eta_genjet && eta_genjet<eta_bins[e+1]){
+        for(unsigned int p = 0; p <pt_bins.size(); p++){
+          if (pt_bins[p]<pt_genjet && pt_genjet<pt_bins[p+1]){
             std::string name = "Resp_";
             name += "flav_"+flav;
-            name += "eta_"+GetStringFromFloat(eta_bins[i])+"to"+GetStringFromFloat(eta_bins[i+1]);
-            name += "pt_"+GetStringFromFloat(pt_bins[j])+"to"+GetStringFromFloat(pt_bins[j+1]);
+            name += "eta_"+GetStringFromFloat(eta_bins[e])+"to"+GetStringFromFloat(eta_bins[e+1]);
+            name += "pt_"+GetStringFromFloat(pt_bins[p])+"to"+GetStringFromFloat(pt_bins[p+1]);
             fill_H1(name, resp, weight);
+            if (flav2!="") {
+              name = "Resp_";
+              name += "flav_"+flav2;
+              name += "eta_"+GetStringFromFloat(eta_bins[e])+"to"+GetStringFromFloat(eta_bins[e+1]);
+              name += "pt_"+GetStringFromFloat(pt_bins[p])+"to"+GetStringFromFloat(pt_bins[p+1]);
+              fill_H1(name, resp, weight);
+            }
+            if (flav3!="") {
+              name = "Resp_";
+              name += "flav_"+flav3;
+              name += "eta_"+GetStringFromFloat(eta_bins[e])+"to"+GetStringFromFloat(eta_bins[e+1]);
+              name += "pt_"+GetStringFromFloat(pt_bins[p])+"to"+GetStringFromFloat(pt_bins[p+1]);
+              fill_H1(name, resp, weight);
+            }
           }
         }
       }

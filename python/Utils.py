@@ -6,6 +6,16 @@ import numpy as np
 import pandas as pd
 from array import array
 
+from ModuleRunnerBase import *
+from tdrstyle_all import *
+import ROOT
+ROOT.gInterpreter.ProcessLine('#include "'+os.environ["CMSSW_BASE"]+'/src/UHH2/JERCStudies/include/Utils.hpp"')
+ROOT.gROOT.SetBatch(ROOT.kTRUE)
+ROOT.gStyle.SetOptStat(0)
+ROOT.gStyle.SetOptFit(0)
+ROOT.gErrorIgnoreLevel = ROOT.kError
+
+
 def prettydic(d, indent=8):
     space = max([0]+[len(str(x)) for x in d])+2
     for key, value in d.items():
@@ -35,3 +45,23 @@ def timeit(method):
 def PrintFormattedLine(listArgs=[], space=10):
     for x in listArgs: print x, " "*(space-len(str(x)) if space-len(str(x))>0 else 2*space-len(str(x))),
     print "\t"
+
+
+
+def FilterVector(vec, val, invert):
+    vec = np.array(vec)
+    mask = vec > val if invert == "invert" else vec < val
+    return vec[~mask]
+
+def FloatToString(x):
+    return str(int(x))+"p"+str(int((x-int(x))*1000))
+
+
+def Getfile(ver, mode):
+    return GenericPath().Path_UHH2+"JRDatabase/textFiles/{ver}_MC/{ver}_MC_{mode}_AK4PFchs.txt".format(ver = ver, mode=mode)
+
+def GetJERfile(ver):
+    return Getfile(ver, "PtResolution")
+
+def GetSFfile(ver):
+    return Getfile(ver, "SF")

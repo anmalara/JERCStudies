@@ -40,8 +40,8 @@ protected:
   std::unordered_map<std::string, std::string> myStrings;
   std::unordered_map<std::string, bool> myBools;
 
-  Event::Handle<std::vector<Jet> > h_jets;
-  Event::Handle<std::vector<TopJet> > h_topjets;
+  Event::Handle<std::vector<Jet> > h_jets_CHS;
+  Event::Handle<std::vector<Jet> > h_jets_Puppi;
   // Define common modules
 
   std::vector<std::unique_ptr<AnalysisModule>> weightsmodules, modules;
@@ -64,11 +64,14 @@ void JERCStudiesModule::PrintInputs() {
 void JERCStudiesModule::book_histograms(uhh2::Context& ctx) {
   for(const auto & tag : histogram_tags){
     string tag_, mytag;
-    tag_ = "Response_CHS_"; myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new JERCStudiesHists(ctx,mytag, myStrings["jetLabel_CHS"]));
-    tag_ = "Response_Puppi_"; myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new JERCStudiesHists(ctx,mytag, myStrings["jetLabel_Puppi"]));
-    // tag_ = "gen_";             myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new GenMatchHists(ctx,mytag));
-    // tag_ = "nTopJet_";         myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new ExtJetHists(ctx,mytag, myStrings["topjetLabel"]));
-    // tag_ = "nJet_";            myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new ExtJetHists(ctx,mytag, myStrings["jetLabel"]));
+    for(const string & algo : {"CHS","Puppi"}){
+      tag_ = "Response_"+algo+"_Neg_HF_"; myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new JERCStudiesHists(ctx,mytag, myStrings["jetLabel_"+algo], false, false, true));
+      tag_ = "Response_"+algo+"_Neg_EC_"; myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new JERCStudiesHists(ctx,mytag, myStrings["jetLabel_"+algo], false, false, false));
+      tag_ = "Response_"+algo+"_Neg_BA_"; myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new JERCStudiesHists(ctx,mytag, myStrings["jetLabel_"+algo], false, true,  false));
+      tag_ = "Response_"+algo+"_Pos_BA_"; myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new JERCStudiesHists(ctx,mytag, myStrings["jetLabel_"+algo], true,  true,  false));
+      tag_ = "Response_"+algo+"_Pos_EC_"; myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new JERCStudiesHists(ctx,mytag, myStrings["jetLabel_"+algo], true,  false, false));
+      tag_ = "Response_"+algo+"_Pos_HF_"; myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new JERCStudiesHists(ctx,mytag, myStrings["jetLabel_"+algo], true,  false, true));
+    }
   }
 }
 
@@ -123,20 +126,54 @@ JERCStudiesModule::JERCStudiesModule(Context & ctx){
   jet_cleaner_CHS.reset( new GenericJetCleaner(ctx, myStrings["jetLabel_CHS"], false, jetId_CHS, jetId_CHS, muoId, eleId));
   jet_cleaner_Puppi.reset( new GenericJetCleaner(ctx, myStrings["jetLabel_Puppi"], false, jetId_Puppi, jetId_Puppi, muoId, eleId));
 
+  h_jets_CHS = ctx.get_handle<vector<Jet>>(myStrings["jetLabel_CHS"]);
+  h_jets_Puppi = ctx.get_handle<vector<Jet>>(myStrings["jetLabel_Puppi"]);
+
 }
 
 
 bool JERCStudiesModule::process(Event & event) {
+
+  bool debug = false;
+
+  if (debug) cout << "New event " << event.event << " " << event.rho << endl;
 
   fill_histograms(event, "nocuts");
 
   for(auto & m : weightsmodules) m->process(event);
   for(auto & m : modules) m->process(event);
 
+  for (auto & jet : event.get(h_jets_CHS)) {
+    if (debug) cout << "new Jet CHS -- eta = " << jet.eta() << " -- phi = " << jet.phi() << " pT_GT = " << jet.pt() << " pT_Original = ";
+    jet.set_v4(jet.v4() * jet.JEC_factor_raw() );
+    jet.set_JEC_factor_raw(1);
+    if (debug) cout << jet.pt() << endl;
+  }
+
+  for (auto & jet : event.get(h_jets_Puppi)) {
+    if (debug) cout << "new Jet Puppi -- eta = " << jet.eta() << " -- phi = " << jet.phi() << " pT_GT = " << jet.pt() << " pT_Original = ";
+    jet.set_v4(jet.v4() * jet.JEC_factor_raw() );
+    jet.set_JEC_factor_raw(1);
+    if (debug) cout << jet.pt() << endl;
+  }
+
   fill_histograms(event, "weights");
 
   jet_cleaner_CHS->process(event);
   jet_cleaner_Puppi->process(event);
+
+  if (debug) {
+
+    for (auto & jet : event.get(h_jets_CHS)) {
+      cout << "new Jet CHS -- eta = " << jet.eta() << " -- phi = " << jet.phi() << " pT_Final = " << jet.pt() << endl;
+    }
+
+    for (auto & jet : event.get(h_jets_Puppi)) {
+      cout << "new Jet Puppi -- eta = " << jet.eta() << " -- phi = " << jet.phi() << " pT_Final = " << jet.pt() << endl;
+    }
+  }
+
+  if (debug) cout << "End event" << endl;
 
   fill_histograms(event, "cleaned");
 

@@ -5,16 +5,20 @@ import math
 import numpy as np
 import pandas as pd
 from array import array
+from collections import OrderedDict
 
 from ModuleRunnerBase import *
 from tdrstyle_all import *
 import ROOT
 ROOT.gInterpreter.ProcessLine('#include "'+os.environ["CMSSW_BASE"]+'/src/UHH2/JERCStudies/include/Utils.hpp"')
-ROOT.gROOT.SetBatch(ROOT.kTRUE)
-ROOT.gStyle.SetOptStat(0)
-ROOT.gStyle.SetOptFit(0)
-ROOT.gErrorIgnoreLevel = ROOT.kError
 
+def RemoveRootLabels():
+    ROOT.gROOT.SetBatch(ROOT.kTRUE)
+    ROOT.gStyle.SetOptStat(0)
+    ROOT.gStyle.SetOptFit(0)
+    ROOT.gErrorIgnoreLevel = ROOT.kError
+
+RemoveRootLabels()
 
 def prettydic(d, indent=8):
     space = max([0]+[len(str(x)) for x in d])+2

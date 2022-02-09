@@ -6,17 +6,23 @@ import itertools
 class Constants():
     def __init__(self):
         self.etaBinsEdges  = [0.000, 0.261, 0.522, 0.783, 1.044, 1.305, 1.566, 1.740, 1.930, 2.043, 2.172, 2.322, 2.500, 2.650, 2.853, 2.964, 3.139, 3.489, 3.839, 5.191]
+        self.etaBinsEdges  = [0.000, 0.261]
         self.etaBinsCommon = [round(self.GetEtaBinCenter(x),4) for x in self.etaBinsEdges[:-1]]
 
-    def GetEtaBin(self,val):
-        return (filter(lambda x: x<=val, self.etaBinsEdges)[-1], filter(lambda x: x>val, self.etaBinsEdges)[0])
+    def GetEtaBinEdgeMin(self,val):
+        return filter(lambda x: x<=val, self.etaBinsEdges)[-1]
+
+    def GetEtaBinEdgeMax(self,val):
+        return filter(lambda x: x>val, self.etaBinsEdges)[0]
 
     def GetEtaBinCenter(self,val):
-        min, max = self.GetEtaBin(val)
+        min = self.GetEtaBinEdgeMin(val)
+        max = self.GetEtaBinEdgeMax(val)
         return (max+min)/2
 
     def GetEtaBinWidth(self,val):
-        min, max = self.GetEtaBin(val)
+        min = self.GetEtaBinEdgeMin(val)
+        max = self.GetEtaBinEdgeMax(val)
         return (max-min)/2
 
 

@@ -133,7 +133,9 @@ class JERCombiner(Constants):
 
     def CreateRatioDataset(self, dataset):
         if debug: debugStr('Create ratio for: '+dataset, color=yellow)
+        print 'Start', dataset
         self.JER[dataset+' ratio'] = TGraphRatio(self.JER[dataset+' Data'],self.JER[dataset+' MC'])
+        print 'END', dataset
 
     def CreateRatioInputDatasets(self):
         for ds in self.Datasets.keys()+self.AdditionalDatasets.keys():
@@ -391,15 +393,12 @@ class JERCombination(VariablesBase):
         self.functions = {}
         self.ExtractRC()
         self.ExtractCterm()
-        # self.ExtractDijet(fname='dijet_andrea')
-        # self.ExtractDijet(fname='dijet_alex')
-        # self.ExtractDijet()
-        self.ExtractDijet('dijet_new')
+        self.ExtractDijet()
         self.ExtractZjet()
         self.ExtractZjet2D()
 
     def ExtractRC(self, fname='RC'):
-        f_ = ROOT.TFile(self.inpdir+fname+'.root')
+        f_ = ROOT.TFile(self.inpdir+fname+'_'+self.year+'.root')
         for type in ['MC', 'Data']:
             name = 'N_{RC,'+('MC' if isMC(type) else 'Data')+'}'
             graph = f_.Get(type+'/RMS')
@@ -412,7 +411,7 @@ class JERCombination(VariablesBase):
         f_.Close()
 
     def ExtractCterm(self, fname='Cterm'):
-        f_ = ROOT.TFile(self.inpdir+fname+'.root')
+        f_ = ROOT.TFile(self.inpdir+fname+'_'+self.year+'.root')
         for type in ['MC', 'Data']:
             name = 'C_{IC,'+type+'}'
             h_ = f_.Get('jerc_rms_'+type.lower())
@@ -422,16 +421,8 @@ class JERCombination(VariablesBase):
         f_.Close()
 
     def ExtractDijet(self, fname='dijet'):
-        f_ = ROOT.TFile(self.inpdir+fname+'.root')
+        f_ = ROOT.TFile(self.inpdir+fname+'_'+self.year+'.root')
         for n, etaRef in enumerate(self.etaBinsCommon):
-            dijetbin = 0
-            if n<=2    : dijetbin = 1
-            elif n<=5  : dijetbin = n-1
-            elif n==6  : dijetbin = 4
-            elif n<=9  : dijetbin = n-2
-            elif n==10 : dijetbin = 7
-            elif n<=15 : dijetbin = n-3
-            else: dijetbin = 13
             name = 'dijet'+FloatToString(self.etaBinsEdges[n])+'to'+FloatToString(self.etaBinsEdges[n+1])
             for type in ['MC', 'Data']:
                 for method in ['FE', 'SM']:
@@ -461,7 +452,7 @@ class JERCombination(VariablesBase):
         f_.Close()
 
     def ExtractZjet(self, fname='zjet_MPF'):
-        f_ = ROOT.TFile(self.inpdir+fname+'.root')
+        f_ = ROOT.TFile(self.inpdir+fname+'_'+self.year+'.root')
         for n, etaRef in enumerate(self.etaBinsCommon):
             for type in ['MC', 'Data']:
                 self.JERCombiners[etaRef].JER['zjet MPF '+type] = HistToGraph(f_.Get('zjet_jer_sn_'+type.lower()), min_val=15, max_val=120 )
@@ -470,7 +461,7 @@ class JERCombination(VariablesBase):
 
     def ExtractZjet2D(self, fname='zjet_balance'):
         for type in ['MC', 'Data']:
-            f_ = ROOT.TFile(self.inpdir+fname+'_'+type+'.root')
+            f_ = ROOT.TFile(self.inpdir+fname+'_'+type+'_'+self.year+'.root')
             jer = f_.Get('jer')
             for y_bin in range(1, jer.GetNbinsY()+1):
                 if jer.GetYaxis().GetBinCenter(y_bin) > self.etaBinsEdges[-1]: continue
@@ -491,6 +482,7 @@ class JERCombination(VariablesBase):
 
     def DoCombination(self):
         for n, etaRef in enumerate(self.etaBinsCommon):
+            print 'Combine', etaRef
             self.JERCombiners[etaRef].DoCombination()
 
     def PlotVsEta(self, canv_name='SF_vs_eta'):
@@ -525,7 +517,7 @@ class JERCombination(VariablesBase):
             line = line.split()
             if float(line[0])<0: continue
             dijetSF['dijet_official'].append({'min': float(line[0]), 'max': float(line[1]), 'SF': float(line[5])})
-        lines = open('/nfs/dust/cms/user/amalara/WorkingArea/UHH2_106X_v2_UL/CMSSW_10_6_28/src/UHH2/JERCStudies/StorageArea/JERCombination/dijet_SF.txt').readlines()
+        lines = open(self.inpdir+'dijet_SF'+'_'+self.year+'.txt').readlines()
         for line in lines[1:]:
             line = line.split()
             if float(line[0])<0: continue

@@ -5,25 +5,26 @@ import itertools
 
 class Constants():
     def __init__(self):
-        self.etaBinsEdges  = [0.000, 0.261, 0.522, 0.783, 1.044, 1.305, 1.566, 1.740, 1.930, 2.043, 2.172, 2.322, 2.500, 2.650, 2.853, 2.964, 3.139, 3.489, 3.839, 5.191]
-        self.etaBinsEdges  = [0.000, 0.261]
+        self.etaBinsEdges_ = [0.000, 0.261, 0.522, 0.783, 1.044, 1.305, 1.566, 1.740, 1.930, 2.043, 2.172, 2.322, 2.500, 2.650, 2.853, 2.964, 3.139, 3.489, 3.839, 5.191]
+        self.etaBinsEdges  = self.etaBinsEdges_
+        # self.etaBinsEdges  = [0.000, 0.261, 0.522, 0.783, 1.044, 1.305]
         self.etaBinsCommon = [round(self.GetEtaBinCenter(x),4) for x in self.etaBinsEdges[:-1]]
 
     def GetEtaBinEdgeMin(self,val):
-        return filter(lambda x: x<=val, self.etaBinsEdges)[-1]
+        return round(filter(lambda x: x<=val, self.etaBinsEdges)[-1],4)
 
     def GetEtaBinEdgeMax(self,val):
-        return filter(lambda x: x>val, self.etaBinsEdges)[0]
+        return round(filter(lambda x: x>val, self.etaBinsEdges)[0],4)
 
     def GetEtaBinCenter(self,val):
         min = self.GetEtaBinEdgeMin(val)
         max = self.GetEtaBinEdgeMax(val)
-        return (max+min)/2
+        return round((max+min)/2,4)
 
     def GetEtaBinWidth(self,val):
         min = self.GetEtaBinEdgeMin(val)
         max = self.GetEtaBinEdgeMax(val)
-        return (max-min)/2
+        return round((max-min)/2,4)
 
 
 

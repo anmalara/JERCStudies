@@ -113,7 +113,7 @@ def tdrGrid( gridOn):
 
 # Redraws the axis
 def fixOverlay():
-  gPad.RedrawAxis()
+  rt.gPad.RedrawAxis()
 
 def setTDRStyle():
   tdrStyle =  rt.TStyle("tdrStyle","Style for P-TDR")
@@ -490,3 +490,8 @@ def tdrDraw(h, opt, marker=rt.kFullCircle, mcolor=rt.kBlack, lstyle=rt.kSolid, l
   h.SetFillColor(fcolor)
   if alpha>0: h.SetFillColorAlpha(fcolor, alpha)
   h.Draw(opt+"SAME")
+
+
+
+def ScaleLeg(name, scale = 0.75):
+    return '#scale['+str(scale)+']{'+str(name)+'}'

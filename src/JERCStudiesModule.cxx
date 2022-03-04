@@ -19,6 +19,8 @@
 #include "UHH2/JERCStudies/include/JERCStudiesHists.h"
 #include "UHH2/JERCStudies/include/GenericJetCleaner.h"
 
+#include "UHH2/JERCProtoLab/macros/common_info/common_binning.hpp"
+
 using namespace std;
 
 class JERCStudiesModule: public ModuleBASE {
@@ -34,43 +36,67 @@ public:
 protected:
 
   // Define variables
-  std::string NameModule = "JERCStudiesModule";
-  std::vector<std::string> histogram_tags = { "nocuts", "weights", "cleaned"};
-  std::vector<string> myTags;
-  std::unordered_map<std::string, std::string> myStrings;
-  std::unordered_map<std::string, bool> myBools;
+  string NameModule = "JERCStudiesModule";
+  vector<string> histogram_tags = { "nocuts", "weights", "cleaned"};
+  vector<string> myTags;
+  unordered_map<string, string> myStrings;
+  unordered_map<string, bool> myBools;
 
-  Event::Handle<std::vector<Jet> > h_jets_CHS;
-  Event::Handle<std::vector<Jet> > h_jets_Puppi;
+  Event::Handle<vector<Jet> > h_jets_CHS;
+  Event::Handle<vector<Jet> > h_jets_Puppi;
   // Define common modules
 
-  std::vector<std::unique_ptr<AnalysisModule>> weightsmodules, modules;
-  std::unique_ptr<uhh2::AndSelection> metfilters_selection;
+  vector<unique_ptr<AnalysisModule>> weightsmodules, modules;
+  unique_ptr<uhh2::AndSelection> metfilters_selection;
 
-  std::unique_ptr<GenericJetCleaner> jet_cleaner_CHS, jet_cleaner_Puppi;
+  unique_ptr<GenericJetCleaner> jet_cleaner_CHS, jet_cleaner_Puppi;
 
 };
 
 
 void JERCStudiesModule::PrintInputs() {
-  std::cout << "****************************************" << std::endl;
-  std::cout << "             "+NameModule+"             " << std::endl;
-  std::cout << "----------------------------------------" << std::endl;
-  for (auto x : myStrings) std::cout << x.first << std::string( 18-x.first.size(), ' ' ) << x.second << '\n';
-  for (auto x : myBools) std::cout << x.first << std::string( 18-x.first.size(), ' ' ) << BoolToString(x.second) << '\n';
-  std::cout << "****************************************\n" << std::endl;
+  cout << "****************************************" << endl;
+  cout << "             "+NameModule+"             " << endl;
+  cout << "----------------------------------------" << endl;
+  for (auto x : myStrings) cout << x.first << string( 18-x.first.size(), ' ' ) << x.second << '\n';
+  for (auto x : myBools) cout << x.first << string( 18-x.first.size(), ' ' ) << BoolToString(x.second) << '\n';
+  cout << "****************************************\n" << endl;
 }
 
 void JERCStudiesModule::book_histograms(uhh2::Context& ctx) {
+  // vector<string> algos = {"CHS", "Puppi"};
+  vector<string> algos = {"CHS"};
+  // vector<string> flav_bins = {"all", "light", "heavy", "g", "pu"};
+  vector<string> flav_bins = {"all"};
+  // vector<double> pu_bins = {0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40.0, 50.0, 100.0};
+  vector<double> pu_bins = {0.0, 100.0};
+  unsigned n_pu_bins = pu_bins.size();
+  if (n_pu_bins<=2) n_pu_bins--;
+
+  float eta_min, eta_max, pu_min, pu_max;
   for(const auto & tag : histogram_tags){
     string tag_, mytag;
-    for(const string & algo : {"CHS","Puppi"}){
-      tag_ = "Response_"+algo+"_Neg_HF_"; myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new JERCStudiesHists(ctx,mytag, myStrings["jetLabel_"+algo], false, false, true));
-      tag_ = "Response_"+algo+"_Neg_EC_"; myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new JERCStudiesHists(ctx,mytag, myStrings["jetLabel_"+algo], false, false, false));
-      tag_ = "Response_"+algo+"_Neg_BA_"; myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new JERCStudiesHists(ctx,mytag, myStrings["jetLabel_"+algo], false, true,  false));
-      tag_ = "Response_"+algo+"_Pos_BA_"; myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new JERCStudiesHists(ctx,mytag, myStrings["jetLabel_"+algo], true,  true,  false));
-      tag_ = "Response_"+algo+"_Pos_EC_"; myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new JERCStudiesHists(ctx,mytag, myStrings["jetLabel_"+algo], true,  false, false));
-      tag_ = "Response_"+algo+"_Pos_HF_"; myTags.push_back(tag_); mytag = tag_ + tag; book_HFolder(mytag, new JERCStudiesHists(ctx,mytag, myStrings["jetLabel_"+algo], true,  false, true));
+    for(const string & algo : algos){
+      for(const string & flav : flav_bins){
+        for (unsigned e=1; e< JERC_Constants::etaBinsEdges_JERC.size(); e++){
+          eta_min = JERC_Constants::etaBinsEdges_JERC[e];
+          eta_max = JERC_Constants::etaBinsEdges_JERC[e+1];
+          for (unsigned p=1; p<= n_pu_bins; p++){
+            if (p==pu_bins.size()){
+              pu_min = pu_bins[0];
+              pu_max = pu_bins[p-1];
+            } else {
+              pu_min = pu_bins[p-1];
+              pu_max = pu_bins[p];
+            }
+            tag_ = "Response_"+algo+"_"+flav;
+            tag_ += "_eta_"+GetStringFromFloat(eta_min)+"to"+GetStringFromFloat(eta_max);
+            tag_ += "_pu_"+GetStringFromFloat(pu_min)+"to"+GetStringFromFloat(pu_max);
+            myTags.push_back(tag_); mytag = tag_ + tag;
+            book_HFolder(mytag, new JERCStudiesHists(ctx, mytag, myStrings["jetLabel_"+algo], eta_min, eta_max, pu_min, pu_max, flav));
+          }
+        }
+      }
     }
   }
 }
@@ -98,8 +124,8 @@ JERCStudiesModule::JERCStudiesModule(Context & ctx){
   myStrings["jetLabel_Puppi"] = "jetsAk4Puppi";
   // myStrings["topjetLabel"] = myBools["isPuppi"]? "toppuppijets": "topjets";
 
-  // h_jets = ctx.get_handle<std::vector<Jet>>(myStrings["jetLabel"]);
-  // h_topjets = ctx.get_handle<std::vector<TopJet>>(myStrings["topjetLabel"]);
+  // h_jets = ctx.get_handle<vector<Jet>>(myStrings["jetLabel"]);
+  // h_topjets = ctx.get_handle<vector<TopJet>>(myStrings["topjetLabel"]);
 
   // Set up histograms:
 

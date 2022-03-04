@@ -4,31 +4,26 @@
 #include "UHH2/core/include/Event.h"
 #include "UHH2/common/include/Utils.h"
 #include "UHH2/JERCStudies/include/JERCStudiesHists.h"
+#include "UHH2/JERCProtoLab/macros/common_info/common_binning.hpp"
 
 using namespace std;
 using namespace uhh2;
 
 
-JERCStudiesHists::JERCStudiesHists(Context & ctx, const string & dname, const string & collection_, const bool isPositive_, const bool isCentral_, const bool isHF_):
-HistsBase(ctx, dname), collection(collection_), isPositive(isPositive_), isCentral(isCentral_), isHF(isHF_) {
+JERCStudiesHists::JERCStudiesHists(Context & ctx, const string & dname, const string & collection_,  const float eta_min_, const float eta_max_, const float pu_min_, const float pu_max_, const string flav_):
+HistsBase(ctx, dname), collection(collection_), eta_min(eta_min_), eta_max(eta_max_), pu_min(pu_min_), pu_max(pu_max_), flav(flav_) {
 
-  FilterVector(eta_bins, 0,                             isPositive? "":"invert");
-  FilterVector(eta_bins, (isPositive?  1:-1)*etaBarrel, isPositive==isCentral? "invert":"");
-  FilterVector(eta_bins, (isPositive? 1:-1)*etaHF,      isPositive==isHF? "":"invert");
+  pt_bins.reserve(JERC_Constants::pt_bins_MCTruth.size());
+  pt_bins.insert(pt_bins.end(), JERC_Constants::pt_bins_MCTruth.begin(), JERC_Constants::pt_bins_MCTruth.end());
 
   h_jets = ctx.get_handle<vector<Jet>>(collection);
 
-  for(unsigned int f = 0; f <flav_bins.size(); f++){
-    for(unsigned int e = 0; e <eta_bins.size(); e++){
-      for(unsigned int p = 0; p <pt_bins.size(); p++){
-        std::string name = "Resp_";
-        name += "flav_"+flav_bins[f];
-        name += "eta_"+GetStringFromFloat(eta_bins[e])+"to"+GetStringFromFloat(eta_bins[e+1]);
-        name += "pt_"+GetStringFromFloat(pt_bins[p])+"to"+GetStringFromFloat(pt_bins[p+1]);
-        book_TH1F(name, "R", 100, -1, 3);
-      }
-    }
+  for(unsigned int p = 0; p <pt_bins.size(); p++){
+    std::string name = "pt_"+GetStringFromFloat(pt_bins[p])+"to"+GetStringFromFloat(pt_bins[p+1]);
+    book_TH1F("Resp_"+name, "R", 100, -1, 3);
+    book_TH1F("pt_"+name, "pt", 250,10,510);
   }
+
 }
 
 
@@ -38,60 +33,32 @@ void JERCStudiesHists::fill(const Event & event){
   for (const auto & jet : event.get(h_jets)) {
 
     auto next_genjet = closestParticle(jet, *event.genjets);
-    auto drmin = next_genjet ? deltaR(jet, *next_genjet) : numeric_limits<float>::infinity();
-    if (drmin>0.2) continue;
+    auto dr_min_ = next_genjet ? deltaR(jet, *next_genjet) : numeric_limits<float>::infinity();
+    if (dr_min_>dr_min) continue;
 
-    double gen_flav = abs(next_genjet->partonFlavour());
     double eta_genjet = next_genjet->eta();
+    double gen_flav = abs(next_genjet->partonFlavour());
+    double pu_gen = event.genInfo->pileup_TrueNumInteractions();
 
-    if (isPositive && eta_genjet<0) continue;
-    if (isCentral && eta_genjet<0) continue;
+    if (eta_min>eta_genjet || eta_genjet>eta_max) continue;
+    if (pu_min>pu_gen || pu_gen>pu_max) continue;
+    if (gen_flav==0 && flav != "pu" && flav !="all") continue;
+    if ((gen_flav==4 || gen_flav==5) && flav != "heavy" && flav !="all") continue;
+    if ((gen_flav>=1 && gen_flav<=3)  && flav != "light" && flav !="all") continue;
+    if (gen_flav==21 && flav != "g" && flav !="all") continue;
 
     double pt_jet = jet.pt();
     double pt_genjet = next_genjet->pt();
     double resp = pt_jet/pt_genjet;
 
-    string flav = "else";
-    if (gen_flav==0) flav = "pu";
-    else if (gen_flav<=3) flav = "uds";
-    else if (gen_flav==4) flav = "c";
-    else if (gen_flav==5) flav = "b";
-    else if (gen_flav==21) flav = "g";
-
-    string flav2 = "";
-    if (gen_flav==4 || gen_flav==5) flav2 = "heavy";
-    else if (gen_flav>=1 || gen_flav<=3 || gen_flav==21) flav2 = "light";
-
-    string flav3 = "";
-    if (gen_flav!=0) flav3 = "all";
-
-    for(unsigned int e = 0; e <eta_bins.size(); e++){
-      if (eta_bins[e]<eta_genjet && eta_genjet<eta_bins[e+1]){
-        for(unsigned int p = 0; p <pt_bins.size(); p++){
-          if (pt_bins[p]<pt_genjet && pt_genjet<pt_bins[p+1]){
-            std::string name = "Resp_";
-            name += "flav_"+flav;
-            name += "eta_"+GetStringFromFloat(eta_bins[e])+"to"+GetStringFromFloat(eta_bins[e+1]);
-            name += "pt_"+GetStringFromFloat(pt_bins[p])+"to"+GetStringFromFloat(pt_bins[p+1]);
-            fill_H1(name, resp, weight);
-            if (flav2!="") {
-              name = "Resp_";
-              name += "flav_"+flav2;
-              name += "eta_"+GetStringFromFloat(eta_bins[e])+"to"+GetStringFromFloat(eta_bins[e+1]);
-              name += "pt_"+GetStringFromFloat(pt_bins[p])+"to"+GetStringFromFloat(pt_bins[p+1]);
-              fill_H1(name, resp, weight);
-            }
-            if (flav3!="") {
-              name = "Resp_";
-              name += "flav_"+flav3;
-              name += "eta_"+GetStringFromFloat(eta_bins[e])+"to"+GetStringFromFloat(eta_bins[e+1]);
-              name += "pt_"+GetStringFromFloat(pt_bins[p])+"to"+GetStringFromFloat(pt_bins[p+1]);
-              fill_H1(name, resp, weight);
-            }
-          }
-        }
+    for(unsigned int p = 0; p <pt_bins.size(); p++){
+      if (pt_bins[p]<pt_genjet && pt_genjet<pt_bins[p+1]){
+        std::string name = "pt_"+GetStringFromFloat(pt_bins[p])+"to"+GetStringFromFloat(pt_bins[p+1]);
+        fill_H1("Resp_"+name, resp,    weight);
+        fill_H1("pt_"+name,   pt_jet,  weight);
       }
     }
+
   }
 }
 

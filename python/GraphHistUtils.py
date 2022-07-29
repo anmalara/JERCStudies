@@ -14,24 +14,43 @@ def TGraphFuncRatio(graph,func):
         y_errs.append(y/func.Eval(x)*Oplus(graph.GetErrorY(bin)/y,graph.GetErrorY(bin)/func.Eval(x)))
     return ROOT.TGraphErrors(len(x_vals), array('d',x_vals), array('d',y_vals), array('d',x_errs), array('d',y_errs))
 
-def TGraphRatio(graph1,graph2):
-    if graph1.GetN()!=graph2.GetN():
-        print 'Error in TGraphRatio: Not same points:', graph1.GetN(), graph2.GetN()
+def TGraphRatio(graph1,graph2, doOffset=False):
+    offset1, offset2 = (0,0)
+    npoints_1 = graph1.GetN()
+    npoints_2 = graph2.GetN()
+    if npoints_1!=npoints_2:
+        if doOffset:
+            if npoints_1-npoints_2 == 6: offset1 = 6
+            if npoints_1-npoints_2 == 5: offset1 = 5
+            if npoints_1-npoints_2 == 4: offset1 = 3
+            if npoints_1-npoints_2 == 3: offset1 = 3
+            if npoints_1-npoints_2 == 2: offset1 = 3
+            if npoints_1-npoints_2 == 1: offset1 = 3
+        else:
+            print 'Error in TGraphRatio: Not same points:', npoints_1, npoints_2
     x_vals = []
     y_vals = []
     x_errs = []
     y_errs = []
-    for bin in range(graph1.GetN()):
+    for bin in range(npoints_1-offset1):
         x1,y1,x2,y2 = (ROOT.Double(0),ROOT.Double(0),ROOT.Double(0),ROOT.Double(0))
-        graph1.GetPoint(int(bin),x1,y1)
-        graph2.GetPoint(int(bin),x2,y2)
-        if x1!=x2:
-            print 'Error in TGraphRatio: Not same x,', x1,x2
+        graph1.GetPoint(int(bin+offset1),x1,y1)
+        graph2.GetPoint(int(bin+offset2),x2,y2)
         if y2==0: continue
+        if x1>3500: continue
+        if x2>3500: continue
+        if x1!=x2:
+            if (1-x1/x2)*100<2:
+                x1 = (x1+x2)/2
+                x2 = x1
+                y1 = graph1.Eval(x1)
+                y2 = graph2.Eval(x2)
+            else:
+                print 'Error in TGraphRatio: Not same x,', x1,x2, (1-x1/x2)*100, bin+offset1, bin+offset2
         x_vals.append(x1)
         y_vals.append(y1/y2)
-        x_errs.append(graph1.GetErrorX(bin))
-        y_errs.append(y1/y2*Oplus(graph1.GetErrorY(bin)/y1,graph2.GetErrorY(bin)/y2))
+        x_errs.append(graph1.GetErrorX(bin+offset1))
+        y_errs.append(y1/y2*Oplus(0 if y1==0 else graph1.GetErrorY(bin+offset1)/y1,graph2.GetErrorY(bin+offset2)/y2))
     return ROOT.TGraphErrors(len(x_vals), array('d',x_vals), array('d',y_vals), array('d',x_errs), array('d',y_errs))
 
 def HistToGraph(hist, min_val = None, max_val = None, remove_values=None):

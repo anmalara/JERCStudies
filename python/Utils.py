@@ -1,5 +1,5 @@
 import time, sys, os, glob
-import functools, argparse
+import functools, argparse, json
 
 import math
 import numpy as np
@@ -84,3 +84,11 @@ def GetJERfile(ver): return Getfile(ver, 'PtResolution')
 def GetSFfile(ver): return Getfile(ver, 'SF')
 def Oplus(x,y): return math.sqrt(x*x+y*y)
 def Ominus(x,y): return math.sqrt(x*x-y*y) if x>=y else x
+
+
+def GetEtaMinMax(etaRef):
+    return (JERC_Constants.GetEtaBinEdgeMin(etaRef),JERC_Constants.GetEtaBinEdgeMax(etaRef))
+
+def GetEtaName(etaRef):
+    eta_min, eta_max = GetEtaMinMax(etaRef)
+    return JERC_Constants.BinToString(eta_min,eta_max)

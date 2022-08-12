@@ -104,6 +104,45 @@ def HistToGraphUncertainty(hist, variations, min_val = None, max_val = None, rem
         y_errs.append(y_err)
     return ROOT.TGraphErrors(len(x_vals), array('d',x_vals), array('d',y_vals), array('d',x_errs), array('d',y_errs))
 
+
+def MergeGraphsUncertainties(graph, variations, min_val = None, max_val = None, remove_values=None):
+    x_vals = []
+    y_vals = []
+    x_errs = []
+    y_errs = []
+    for bin in range(graph.GetN()):
+        x_val,y_val = (ROOT.Double(0),ROOT.Double(0))
+        graph.GetPoint(int(bin),x_val,y_val)
+        if min_val and x_val<min_val: continue
+        if max_val and x_val>max_val: continue
+        if remove_values and x_val in remove_values: continue
+        y_err = graph.GetErrorY(bin)
+        for name, variation in variations.items():
+            x_val_var,y_val_var = (ROOT.Double(0),ROOT.Double(0))
+            variation['up'].GetPoint(int(bin),x_val_var,y_val_var)
+            err_up = y_val_var-y_val
+            variation['down'].GetPoint(int(bin),x_val_var,y_val_var)
+            err_down = y_val_var-y_val
+            if 'gaustails' in name:
+                err_up /=2
+                err_down /=2
+            if 'nominal' in name:
+                err_up = 3*variation['up'].GetErrorY(bin)
+                err_down = 3*variation['down'].GetErrorY(bin)
+            mean = (err_up+err_down)/2
+            diff = (err_up-err_down)/2
+            err = Oplus(mean, diff*math.sqrt(2))
+            if err/y_val>0.85:continue
+            y_val += diff
+            y_err = Oplus(y_err, err)
+            # if err/y_val<0.2:continue
+            # print x_val, err/y_val, round(y_err,3), name, round(err_up,3), round(err_down,3), round(mean,3), round(diff,3), round(err,3)
+        x_vals.append(x_val)
+        y_vals.append(y_val)
+        x_errs.append(graph.GetErrorX(bin))
+        y_errs.append(y_err)
+    return ROOT.TGraphErrors(len(x_vals), array('d',x_vals), array('d',y_vals), array('d',x_errs), array('d',y_errs))
+
 def ExpandGraph(graph, x_val, y_val, x_err = 0, y_err = 0):
     x_vals = []
     y_vals = []
@@ -169,8 +208,8 @@ def GetConfidenceIntervals(func, fitRes, Nbins, xcenters, ci, cl = 0.68):
         ci_ = ROOT.TMath.Sqrt(ci_)
         ci[ipoint] = ci_*tStudent*chindf
 
-def ComputeHistWithCL(name, func, fitRes, graph, cl=0.68):
-    x_vals = array('d',graph.GetX())
+def ComputeHistWithCL(name, func, fitRes, graph, cl=0.68, isGraph=True):
+    x_vals = array('d',graph.GetX() if isGraph else [graph.GetBinCenter(bin) for bin in range(1,graph.GetNbinsX()+1)])
     x_errs = []
     y_vals_band = []
     y_vals_ratioband = []
@@ -181,7 +220,7 @@ def ComputeHistWithCL(name, func, fitRes, graph, cl=0.68):
     GetConfidenceIntervals(func, fitRes, Nbins, x_vals, ci, cl)
     for bin in range(Nbins):
         y_ = func.Eval(x_vals[bin])
-        x_errs.append(graph.GetErrorX(bin))
+        x_errs.append(graph.GetErrorX(bin) if isGraph else graph.GetBinError(bin))
         y_vals_band.append(y_)
         y_vals_ratioband.append(1)
         y_errs_band.append(ci[bin])

@@ -6,12 +6,14 @@ ROOT.gErrorIgnoreLevel = ROOT.kError
 tdr.writeExtraText = True
 tdr.extraText = 'Work in progress'
 
-def GetEtaMinMax(etaRef):
-    return (JERC_Constants.GetEtaBinEdgeMin(etaRef),JERC_Constants.GetEtaBinEdgeMax(etaRef))
 
-def GetEtaName(etaRef):
-    eta_min, eta_max = GetEtaMinMax(etaRef)
-    return '{:.3f}_{:.3f}'.format(eta_min,eta_max).replace('.','p')
+def NSC(x, par):
+    pt = x[0]
+    mu = par[5]
+    N_term = (par[0]*par[0]+par[1]*par[1]*mu)/(pt*pt)
+    S_term = par[2]*par[2]*ROOT.TMath.Power(pt,par[3])
+    C_term = par[4]*par[4]
+    return ROOT.TMath.Sqrt(N_term + S_term + C_term)
 
 class CompareJER_DifferentGroups(InputBase):
     def __init__(self):
@@ -21,7 +23,8 @@ class CompareJER_DifferentGroups(InputBase):
         # self.algos = ['ak4pfchs']
         # self.years['UL'] = ['UL17', 'UL18']
         # self.years['UL'] = ['UL17']
-        # self.years['UL'] = ['UL18']
+        self.years['UL'] = ['UL18']
+        self.etaBinsCommon = self.etaBinsCommon[0:1]
         self.LoadFiles()
         self.DoPlots()
 
@@ -32,6 +35,7 @@ class CompareJER_DifferentGroups(InputBase):
         self.LoadFiles_Hirak()
         self.LoadFiles_NonGaussTails()
         self.LoadFiles_DijetAnalysis_MCTruth()
+        self.ExtractRC()
 
     def LoadFiles_NonGaussTails(self):
         group = 'NonGaussTails'
@@ -107,8 +111,10 @@ class CompareJER_DifferentGroups(InputBase):
                 for eta_bin, etaRef in enumerate(self.etaBinsCommon):
                     eta_name = GetEtaName(etaRef)
                     self.graphs[group][year][algo][eta_name] = OrderedDict()
-                    for mode in ['nominal']+['rms_'+'{:.2f}'.format(perc).replace('.','p') for perc in sorted(self.RMS)]:
-                        self.graphs[group][year][algo][eta_name][mode] = f_.Get(algo+'/MCTruth_jer_mu_avg_MC_'+eta_name+'_'+mode)
+                    for mode in ['CB', 'gauss', 'CI']:
+                        for index, perc in enumerate(self.RMS):
+                            jer_name = 'JER_'+mode+'_{:.2f}'.format(perc).replace('.','p')
+                            self.graphs[group][year][algo][eta_name][jer_name] = f_.Get(algo+'/MCTruth_jer_mu_avg_MC_'+eta_name+'_'+jer_name)
             f_.Close()
 
     def LoadFiles_Hirak(self):
@@ -138,11 +144,16 @@ class CompareJER_DifferentGroups(InputBase):
                     self.graphs[group][year][algo][eta_name] = ROOT.TGraphErrors(len(pts), array('d',pts), array('d',[graph.Eval(pt) for pt in pts]), array('d',[0]*len(pts)), array('d',[0]*len(pts)))
             f_.Close()
 
+    def ExtractRC(self, mode='sigrc'):
+        with open('StudyNoiseTerm/NTerm.json') as json_file:
+            self.NTerms = json.load(json_file)
+
+
     def CreateCanvas(self, name, year,eta_min,eta_max):
         tdr.cms_lumi_TeV = tdr.commonScheme['legend'][year]+' Legacy, '+commonScheme['lumi'][year]+' fb^{-1}'
         tdr.extraText3 = []
         tdr.extraText3.append(eta_min+' < |#eta| < '+eta_max)
-        self.canv = tdrDiCanvas(name, 8, 3500, 0.0001, 0.6, 0.8, 1.2, 'p_{T}^{ptcl} [GeV]', 'JER', 'Ratio')
+        self.canv = tdrDiCanvas(name, 8, 3500, 0.0001, 0.6, 0.9, 1.5, 'p_{T}^{ptcl} [GeV]', 'JER', 'Ratio')
         self.canv.cd(2).SetLogx(True)
         tdrDrawLine(self.ref_line1, lcolor=ROOT.kBlack, lstyle=ROOT.kDashed)
         tdrDrawLine(self.ref_line2, lcolor=ROOT.kGray+1, lstyle=ROOT.kDotted)
@@ -150,18 +161,66 @@ class CompareJER_DifferentGroups(InputBase):
         self.canv.cd(1).SetLogx(True)
         self.leg = tdrLeg(0.70,0.65,0.89,0.89, textSize=0.035)
         self.leg1 = tdrLeg(0.40,0.65,0.70,0.89, textSize=0.035)
+        self.legPars = {}
+        self.legPars['CB_95'] = tdrLeg(0.40,0.50,0.55,0.65, textSize=0.035)
+        self.legPars['CB_87'] = tdrLeg(0.55,0.50,0.70,0.65, textSize=0.035)
+        self.legPars['CB_68'] = tdrLeg(0.70,0.50,0.89,0.65, textSize=0.035)
+        self.legPars['CI_95'] = tdrLeg(0.40,0.40,0.55,0.50, textSize=0.035)
+        self.legPars['CI_87'] = tdrLeg(0.55,0.40,0.70,0.50, textSize=0.035)
+        self.legPars['CI_68'] = tdrLeg(0.70,0.40,0.89,0.50, textSize=0.035)
+        self.canv.cd(2)
+        self.leg2 = tdrLeg(0.17,0.70,0.30,0.85, textSize=0.04)
+        self.canv.cd(1)
+
 
     def SaveCanvas(self, year,algo,eta_name):
         self.canv.SaveAs(self.outdir+'/'+'_'.join(['JER_comparison',year,algo,eta_name])+'.pdf')
         del self.canv
 
+    def CreateNSC(self, name, eta_name, year, color, graph, doLeg=False):
+        funcs = {}
+        fitRes = {}
+        parNames = {0: 'N_{#mu=0}',1: 'N',2: 'S',3: 'd',4: 'C',5: '#mu'}
+        mu = 32 if '18' in year else (33 if '17' in year else 23)
+        modes = ['free', 'const', 'fix']
+        modes = ['fix']
+        val0, err0 = self.NTerms[year]['MC']['sigrc']['par0'][eta_name]
+        val1, err1 = self.NTerms[year]['MC']['sigrc']['par1'][eta_name]
+        for mode in modes:
+            funcs[name+mode] = ROOT.TF1(name+mode, NSC, 7., 3550., 6)
+            funcs[name+mode].FixParameter(0, val0)
+            funcs[name+mode].FixParameter(1, val1)
+            if mode=='free':
+                funcs[name+mode].SetLineStyle(ROOT.kDotted)
+            if mode=='const':
+                funcs[name+mode].SetParameter(5, mu)
+                funcs[name+mode].SetParLimits(5, mu-5, mu+5)
+                funcs[name+mode].SetLineStyle(ROOT.kSolid)
+            if mode=='fix':
+                funcs[name+mode].FixParameter(5, mu)
+                funcs[name+mode].SetLineStyle(ROOT.kDashed)
+            funcs[name+mode].SetLineColor(color)
+            fitRes[mode] = graph.Fit(funcs[name+mode], 'RMQS+')
+            ROOT.gStyle.SetOptFit(0)
+        if doLeg:
+            lname = 'CB_' if 'CB' in name else 'CI_'
+            lname += '68' if '68' in name else ('87' if '87' in name else '95')
+            for mode in modes:
+                self.legPars[lname].AddEntry(funcs[name+mode], lname, 'l')
+            for par in range(2,4):
+                for mode in modes:
+                    val = round(funcs[name+mode].GetParameter(par),2)
+                    if par!=3: val = math.fabs(val)
+                    self.legPars[lname].AddEntry(ROOT.TObject(), parNames[par]+' = '+str(val), 'P')
+        return fitRes
+
     def DoPlots(self):
         colors ={
-            'nominal':  ROOT.kBlack,
-            'rms_0p68': ROOT.kRed+1,
-            'rms_0p87': ROOT.kOrange+1,
-            'rms_0p95': ROOT.kGreen+2,
-            'rms_0p99': ROOT.kAzure+2,
+            # 'nominal':  ROOT.kBlack,
+            '0p68': ROOT.kRed+1,
+            '0p87': ROOT.kOrange+1,
+            '0p95': ROOT.kGreen+2,
+            '0p99': ROOT.kAzure+2,
         }
         self.ref_line1 = ROOT.TLine(8, 1.00, 3500, 1.00)
         self.ref_line2 = ROOT.TLine(8, 1.05, 3500, 1.05)
@@ -185,6 +244,7 @@ class CompareJER_DifferentGroups(InputBase):
                     eta_name = GetEtaName(etaRef)
                     eta_min, eta_max = eta_name.replace('p','.').split('_')
                     self.CreateCanvas(eta_name,year,eta_min,eta_max)
+                    funcs = {}
                     ref_graph = self.graphs['Hirak'][year][algo][eta_name]
                     # ref_graph = self.graphs['Ilias'][year][algo][eta_name]['rms_0p95']
                     # ref_graph = self.graphs['Ilias'][year][algo][eta_name]['nominal']
@@ -202,39 +262,49 @@ class CompareJER_DifferentGroups(InputBase):
                     # tdrDraw(ksenia[eta_name+'ratio'], 'p', marker=ROOT.kFullCircle, mcolor=color)
                     group, color = ('Hirak',ROOT.kViolet+1)
                     graph = self.graphs[group][year][algo][eta_name]
+                    fitRes = self.CreateNSC(name=group+year+algo+eta_name, eta_name=eta_name, year=year, color=color, graph=graph)
                     self.canv.cd(1)
-                    tdrDraw(graph, 'p', marker=ROOT.kFullCircle, mcolor=color)
+                    style = ROOT.kFullDiamond
+                    tdrDraw(graph, 'p', marker=style, mcolor=color)
                     self.leg1.AddEntry(graph, group, 'p')
                     self.graphs[group][year][algo][eta_name+'ratio'] = TGraphRatio(graph, ref_graph)
                     self.canv.cd(2)
-                    tdrDraw(self.graphs[group][year][algo][eta_name+'ratio'], 'p', marker=ROOT.kFullCircle, mcolor=color)
+                    tdrDraw(self.graphs[group][year][algo][eta_name+'ratio'], 'p', marker=style, mcolor=color)
                     group = 'Ilias'
                     for mode, graph in self.graphs[group][year][algo][eta_name].items():
-                        color = colors[mode]
+                        color = colors[mode.split('_')[-1]]
+                        style = ROOT.kFullCircle if 'CB' in mode else (ROOT.kFullTriangleUp if 'CI' in mode else ROOT.kFullTriangleDown)
+                        lstyle = ROOT.kSolid if 'CB' in mode else (ROOT.kDashed if 'CI' in mode else ROOT.kDotted)
+                        fitRes = self.CreateNSC(name=group+year+algo+eta_name+mode, eta_name=eta_name, year=year, color=color, graph=graph, doLeg=(not 'gaus' in mode and not '99' in mode))
                         self.canv.cd(1)
-                        tdrDraw(graph, 'p', marker=ROOT.kFullCircle, mcolor=color)
-                        self.leg.AddEntry(graph, mode if mode!='nominal' else 'gauss fit', 'p')
-                        if mode == 'nominal':
-                            self.leg1.AddEntry(graph, 'MCTruth from '+group, 'p')
+                        tdrDraw(graph, 'p', marker=style, mcolor=color)
+                        if 'CB' in mode:
+                            self.leg.AddEntry(graph, mode.split('_')[-1].replace('p','.'), 'p')
+                        if '68' in mode:
+                            self.leg1.AddEntry(graph, mode.split('_')[1], 'p')
                         self.canv.cd(2)
                         # if mode != 'nominal' and not '95' in mode: continue
                         self.graphs[group][year][algo][eta_name][mode+'ratio'] = TGraphRatio(graph, ref_graph)
-                        tdrDraw(self.graphs[group][year][algo][eta_name][mode+'ratio'], 'p', marker=ROOT.kFullCircle, mcolor=color)
+                        tdrDraw(self.graphs[group][year][algo][eta_name][mode+'ratio'], 'l', marker=style, mcolor=color, lstyle=lstyle, lcolor=color)
+                        if '68' in mode:
+                            self.leg2.AddEntry(self.graphs[group][year][algo][eta_name][mode+'ratio'], mode.split('_')[1], 'l')
                     group, color = ('NonGaussTails',ROOT.kGray+1)
                     graph = self.graphs[group][year][algo][eta_name]
+                    # fitRes = self.CreateNSC(name=group+year+algo+eta_name, eta_name=eta_name, year=year, color=color, graph=graph)
                     self.canv.cd(1)
-                    tdrDraw(graph, 'p', marker=ROOT.kFullCircle, mcolor=color)
+                    style = ROOT.kFullSquare
+                    tdrDraw(graph, 'p', marker=style, mcolor=color)
                     self.leg1.AddEntry(graph, 'core from CB fit', 'p')
                     self.graphs[group][year][algo][eta_name+'ratio'] = TGraphRatio(graph, ref_graph)
                     self.canv.cd(2)
-                    tdrDraw(self.graphs[group][year][algo][eta_name+'ratio'], 'p', marker=ROOT.kFullCircle, mcolor=color)
-                    group = 'dijet'
-                    for mode, graph in self.graphs[group][year][algo][eta_name].items():
-                        color = colors[mode]
-                        self.canv.cd(1)
-                        tdrDraw(graph, 'l', lcolor=color, lstyle=ROOT.kDashed)
-                        if mode == 'nominal':
-                            self.leg1.AddEntry(graph, 'MCTruth from '+group, 'l')
+                    tdrDraw(self.graphs[group][year][algo][eta_name+'ratio'], 'p', marker=style, mcolor=color)
+                    # group = 'dijet'
+                    # for mode, graph in self.graphs[group][year][algo][eta_name].items():
+                    #     color = colors[mode]
+                    #     self.canv.cd(1)
+                    #     tdrDraw(graph, 'l', lcolor=color, lstyle=ROOT.kDashed)
+                    #     if mode == 'nominal':
+                    #         self.leg1.AddEntry(graph, 'MCTruth from '+group, 'l')
                     self.SaveCanvas(year=year,algo=algo,eta_name=eta_name)
 
 
@@ -256,14 +326,14 @@ class CompareJER_DifferentGroups(InputBase):
                 self.leg.AddEntry(graph, group, 'l')
                 self.canv.cd(2)
                 tdrDraw(graph_ratio, 'p', marker=ROOT.kFullCircle, mcolor=color)
-                for mode in ['nominal', 'rms_0p95', 'rms_0p68']:
-                    group, color = ('Ilias', colors[mode])
+                for mode in ['rms_0p95', 'rms_0p68']:
+                    group, color = ('Ilias', colors[mode.split('_')[-1]])
                     graph = self.graphs[group][year][algo][eta_name][mode]
                     graph_ref = self.graphs[group][year][algo_ref][eta_name][mode]
                     graph_ratio = TGraphRatio(graph, graph_ref)
                     self.graphs[group][year][algo][eta_name][mode+'ratio_algo'] = graph_ratio
                     self.leg.AddEntry(graph, group+' '+mode, 'l')
-                    if mode=='nominal':
+                    if mode=='rms_0p68':
                         self.leg1.AddEntry(graph, 'chs', 'l')
                         self.leg1.AddEntry(graph_ref, 'Puppi', 'l')
                     self.canv.cd(1)
@@ -293,12 +363,12 @@ class CompareJER_DifferentGroups(InputBase):
                     self.canv.cd(2)
                     tdrDraw(graph_ratio, 'l', lcolor=color, lstyle=style)
                     group = 'Ilias'
-                    for mode in ['nominal', 'rms_0p95']:
-                        style = ROOT.kSolid if mode=='nominal' else ROOT.kDotted
+                    for mode in ['rms_0p68', 'rms_0p95']:
+                        style = ROOT.kSolid if mode=='rms_0p68' else ROOT.kDotted
                         graph = self.graphs[group][year][algo][eta_name][mode]
                         graph_ratio = TGraphRatio(graph, self.graphs[group][year_ref][algo][eta_name][mode])
                         self.graphs[group][year][algo][eta_name][mode+'ratio_years'] = graph_ratio
-                        if mode == 'nominal':
+                        if mode == 'rms_0p68':
                             self.leg.AddEntry(graph, year, 'l')
                         if year =='UL18':
                             self.leg1.AddEntry(graph, group+' '+mode, 'l')

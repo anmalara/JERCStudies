@@ -17,11 +17,11 @@ def GetResolutionFormula(JetResolutionObject, JetParameters, name = 'Resolution'
         formula.SetParameter(i,pars.at(i))
     return formula
 
-def GetResolutionRatio(JetResolutionObject1, JetResolutionObject2, JetParameters, name = 'Ratio', min = 10, max = 3000):
+def GetResolutionRatio(JetResolutionObject1, JetResolutionObject2, JetParameters1, JetParameters2, name = 'Ratio', min = 10, max = 3000):
     formulaString1 = JetResolutionObject1.getResolutionObject().getDefinition().getFormulaString()
     formulaString2 = JetResolutionObject2.getResolutionObject().getDefinition().getFormulaString()
-    pars1 = JetResolutionObject1.getResolutionObject().getRecord(JetParameters).getParametersValues()
-    pars2 = JetResolutionObject2.getResolutionObject().getRecord(JetParameters).getParametersValues()
+    pars1 = JetResolutionObject1.getResolutionObject().getRecord(JetParameters1).getParametersValues()
+    pars2 = JetResolutionObject2.getResolutionObject().getRecord(JetParameters2).getParametersValues()
     for i in reversed(range(pars2.size())):
         formulaString2 = formulaString2.replace('['+str(i)+']', '['+str(i+pars1.size()+1)+']')
     formula = rt.TF1(name, formulaString1+'/'+formulaString2, min, max)

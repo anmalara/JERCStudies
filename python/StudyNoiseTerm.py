@@ -40,19 +40,26 @@ class StudyNoiseTerm(InputBase):
                         if etaRef!=eta_center:
                             raise ValueError('This eta binning is not expected: '+str(etaRef)+' -> '+str(eta_center))
                         name_eta = name+GetEtaName(etaRef)
-                        self.inputs['NoiseVsPu'][name_eta] = h2D.ProjectionY(name_eta, eta_bin+1, eta_bin+1,'e')
+                        hist = h2D.ProjectionY(name_eta, eta_bin+1, eta_bin+1,'e')
+                        self.inputs['NoiseVsPu'][name_eta] = hist
                         self.inputs['NoiseVsPu'][name_eta].SetDirectory(0)
                         href = h2D_ref.ProjectionY(name_eta, eta_bin+1, eta_bin+1,'e')
-                        href.Add(self.inputs['NoiseVsPu'][name_eta],-1)
-                        for bin in range(self.inputs['NoiseVsPu'][name_eta].GetNbinsX()+1):
-                            err = math.fabs(self.inputs['NoiseVsPu'][name_eta].GetBinError(bin)-2*math.fabs(href.GetBinContent(bin)))
-                            self.inputs['NoiseVsPu'][name_eta].SetBinError(bin,err/3)
-                        func = rt.TF1(name_eta, 'TMath::Sqrt([0]*[0]+[1]*[1]*x)', 0,70)
+                        href.Add(hist,-1)
+                        for bin in range(hist.GetNbinsX()+1):
+                            # err = math.fabs(hist.GetBinError(bin)-2*math.fabs(href.GetBinContent(bin)))
+                            # hist.SetBinError(bin,err/3)
+                            # hist.SetBinError(bin,math.fabs(href.GetBinContent(bin))/2)
+                            hist.SetBinContent(bin,math.fabs(hist.GetBinContent(bin))*(1.10 if 'sigrc' in mode else 0.90))
+                            hist.SetBinError(bin,math.fabs(hist.GetBinContent(bin))*0.025)
+                            if 'UL16' in year and href.GetBinCenter(bin)>40:
+                                hist.SetBinContent(bin,0)
+                                hist.SetBinError(bin,0)
+                        func = rt.TF1(name_eta, 'TMath::Sqrt([0]*[0]+[1]*[1]*x)', 0, 45 if 'UL16' in year else 65)
                         # func.SetParLimits(0,0.5,10)
                         self.funcs[name_eta] = func
-                        fitRes = self.inputs['NoiseVsPu'][name_eta].Fit(func,'RQMS')
-                        self.FitBands[name_eta], self.FitRatioBands[name_eta] = ComputeHistWithCL(name_eta, func, fitRes, self.inputs['NoiseVsPu'][name_eta], cl=0.68, isGraph=False)
-                        self.inputs['NoiseVsPu'][name_eta].GetListOfFunctions().RemoveLast()
+                        fitRes = hist.Fit(func,'RQMS', '', 10, 40 if 'UL16' in year else 60)
+                        self.FitBands[name_eta], self.FitRatioBands[name_eta] = ComputeHistWithCL(name_eta, func, fitRes, hist, cl=0.68, isGraph=False)
+                        hist.GetListOfFunctions().RemoveLast()
                         ROOT.gStyle.SetOptFit(0)
                         par0,err0,par1,err1 = func.GetParameter(0), func.GetParError(0), func.GetParameter(1), func.GetParError(1)
                         par0,err0,par1,err1 = (round(math.fabs(par0),4), round(math.fabs(err0),4), round(math.fabs(par1),4), round(math.fabs(err1),4))
@@ -89,9 +96,9 @@ class StudyNoiseTerm(InputBase):
         tdr.extraText3.append(str(eta_min)+' < |#eta| < '+str(eta_max))
         canv_name = name_eta
         # canv = tdrDiCanvas(canv_name, 0, 70, 0, 10, 0.5, 1.0, 'N_{PU}', 'Noise term', 'RMS/gaus')
-        canv = tdrDiCanvas(canv_name, 0, 70, 0, 10, 0.9, 1.3, 'N_{PU}', 'Noise term', 'Data/MC')
-        leg = tdrLeg(0.70,0.65,0.89,0.89, textSize=0.035)
-        leg2 = tdrLeg(0.50,0.75,0.7,0.89, textSize=0.035)
+        canv = tdrDiCanvas(canv_name, 0, 70, 0.01, 5.5 if eta_bin <=10 else 9, 0.9, 1.3, 'N_{PU}', 'Noise term', 'Data/MC')
+        leg = tdrLeg(0.65,0.40,0.90,0.60, textSize=0.035)
+        leg2 = tdrLeg(0.45,0.80,0.65,0.90, textSize=0.035)
         leg2.AddEntry(l_MC,'MC','LP')
         leg2.AddEntry(l_data,'Data','LP')
         for name, h in sorted(self.inputs['NoiseVsPu'].items()):
@@ -121,7 +128,7 @@ class StudyNoiseTerm(InputBase):
             if 'MC' in name: continue
             canv.cd(2)
             self.FitRatioBands[name+'ratio'] = TGraphRatio(self.FitBands[name], self.FitBands[name.replace('Data','MC')])
-            tdrDraw(self.FitRatioBands[name+'ratio'], 'l', marker=mstyle, mcolor=color)
+            tdrDraw(self.FitRatioBands[name+'ratio'], 'lc', marker=mstyle, mcolor=color)
             # self.inputs['NoiseVsPu'][name+'ratio'] = self.inputs['NoiseVsPu'][name.replace(self.modes[0],self.modes[1])].Clone(name+'ratio')
             self.inputs['NoiseVsPu'][name+'ratio'] = h.Clone(name+'ratio')
             self.inputs['NoiseVsPu'][name+'ratio'].Divide(self.inputs['NoiseVsPu'][name+'ratio'],self.inputs['NoiseVsPu'][name.replace('Data','MC')], 1,1,'B')
@@ -135,10 +142,10 @@ class StudyNoiseTerm(InputBase):
         tdr.extraText3 = []
         for par in [0,1]:
             canv_name = 'Parameter_'+str(par)+'VsEta'
-            PlotYMin, PlotYMax, PlotYMax2 = (0, 2, 1.5) if par ==1 else (0,5,5)
-            canv = tdrDiCanvas(canv_name, 0, 5, PlotYMin, PlotYMax, 0.5, PlotYMax2, '|eta|', 'Parameter '+str(par), 'RMS/gaus')
-            leg = tdrLeg(0.70,0.65,0.89,0.89, textSize=0.035)
-            leg1 = tdrLeg(0.40,0.65,0.70,0.89, textSize=0.035)
+            PlotYMin, PlotYMax, PlotYMin2, PlotYMax2 = (0.3, 1.4, 0.7, 1.5) if par ==1 else (0.0001,5,0., 2.0)
+            canv = tdrDiCanvas(canv_name, 0, 5, PlotYMin, PlotYMax, PlotYMin2, PlotYMax2, '|eta|', 'Parameter '+str(par), 'Data/MC')
+            leg = tdrLeg(0.65,0.65,0.90,0.90, textSize=0.035)
+            leg1 = tdrLeg(0.45,0.80,0.65,0.90, textSize=0.035)
             extraobjs = {}
             for year in self.years['UL']:
                 color = tdr.commonScheme['color'][year]
@@ -154,11 +161,11 @@ class StudyNoiseTerm(InputBase):
                         extraobjs[type] = ROOT.TLine()
                         extraobjs[type].SetLineStyle(lstyle)
                         leg1.AddEntry(extraobjs[type], type, 'l')
-                    ref_graph = self.graphs[year+type+self.modes[1]+'par'+str(par)]
-                    tdrDraw(ref_graph, 'l', lcolor = color, lstyle=lstyle)
-                    self.graphs[year+type+self.modes[1]+'par'+str(par)+'ratio']= TGraphRatio(graph,ref_graph)
-                    canv.cd(2)
-                    tdrDraw(self.graphs[year+type+self.modes[1]+'par'+str(par)+'ratio'], 'l', lcolor = color, lstyle=lstyle)
+                    if not 'MC' in type:
+                        ref_graph = self.graphs[year+'MC'+self.modes[0]+'par'+str(par)]
+                        self.graphs[year+type+self.modes[0]+'par'+str(par)+'ratio']= TGraphRatio(graph,ref_graph)
+                        canv.cd(2)
+                        tdrDraw(self.graphs[year+type+self.modes[0]+'par'+str(par)+'ratio'], 'l', lcolor = color, lstyle=lstyle)
             canv.SaveAs(os.path.join(self.outdir,canv_name+'.pdf'))
         del canv
 
